@@ -1,0 +1,230 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum SyncStatus {
+  draft
+  syncing
+  synced
+  failed
+  conflicted
+}
+
+enum TaskStatus {
+  draft
+  ready
+  running
+  submitted
+  archived
+}
+
+enum SourceType {
+  manual
+  generated
+  synced
+}
+
+enum RepoVisibility {
+  public
+  private
+}
+
+enum WorkspaceProjectStatus {
+  success
+  partial_success
+}
+
+enum WorkspaceRunStatus {
+  draft
+  collected
+  analyzed
+  submitted
+  failed
+}
+
+enum EvaluationConfidence {
+  high
+  medium
+  low
+}
+
+model TaskRecord {
+  id                  String     @id @default(cuid())
+  uid                 String
+  recordId            String     @unique
+  traeSessionId       String     @default("")
+  round               Int        @default(1)
+  userPrompt          String     @default("")
+  taskType            String     @default("")
+  businessDomain      String     @default("")
+  modifyScope         String     @default("")
+  taskCompleted       String     @default("")
+  processSatisfaction String     @default("")
+  unsatisfiedReason   String     @default("")
+  githubUrl           String     @default("")
+  branchOrFolder      String     @default("")
+  screenshots         String     @default("")
+  screenshotAttachments String     @default("[]")
+  screenshotFileToken String     @default("")
+  screenshotExtra     String     @default("")
+  logs                String     @default("")
+  qcStatus            String     @default("")
+  syncStatus          SyncStatus @default(draft)
+  updatedAt           DateTime   @updatedAt
+  lastSyncedAt        DateTime?
+  lastRemoteUpdatedAt DateTime?
+  version             Int        @default(1)
+
+  @@index([uid])
+  @@index([syncStatus])
+}
+
+model TaskBankItem {
+  id             String     @id @default(cuid())
+  taskId          String     @unique
+  uidBinding      String     @default("")
+  title           String
+  promptContent   String
+  promptMode      String
+  model           String
+  taskType        String     @default("")
+  businessDomain  String     @default("")
+  modifyScope     String     @default("")
+  sourceType      SourceType
+  status          TaskStatus
+  submittedAt     DateTime?
+  createdAt       DateTime   @default(now())
+  fingerprint     String?
+
+  @@index([uidBinding])
+  @@index([status])
+}
+
+model WorkspaceProject {
+  id              String                 @id @default(cuid())
+  workspaceId     String                 @unique
+  taskId          String
+  recordId        String                 @default("")
+  uid             String                 @default("")
+  repoName        String
+  githubOwner     String
+  githubUrl       String
+  localPath       String
+  currentBranch   String                 @default("")
+  metadataPath    String                 @default("")
+  visibility      RepoVisibility
+  cloneEnabled    Boolean
+  traeOpened      Boolean
+  traeAppName     String
+  status          WorkspaceProjectStatus
+  errorMessage    String?
+  lastCollectedAt DateTime?
+  createdAt       DateTime               @default(now())
+
+  runs            WorkspaceRun[]
+
+  @@index([taskId])
+  @@index([recordId])
+  @@index([uid])
+}
+
+model WorkspaceRun {
+  id                         String               @id @default(cuid())
+  runId                      String               @unique
+  workspaceId                String
+  recordId                   String
+  uid                        String
+  status                     WorkspaceRunStatus   @default(draft)
+  repoName                   String
+  githubUrl                  String
+  branchName                 String
+  localPath                  String
+  screenshotPath             String               @default("")
+  screenshotMimeType         String               @default("")
+  traeExportPath             String               @default("")
+  logsText                   String               @default("")
+  artifactSummary            String               @default("")
+  aiSuggestedSatisfaction    String               @default("")
+  aiSuggestedReason          String               @default("")
+  aiEvidence                 String               @default("[]")
+  aiConfidence               EvaluationConfidence?
+  userFinalSatisfaction      String               @default("")
+  userFinalReason            String               @default("")
+  submittedAt                DateTime?
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt
+
+  workspaceProject           WorkspaceProject     @relation(fields: [workspaceId], references: [workspaceId], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([recordId])
+  @@index([uid])
+  @@index([status])
+}
+
+model UserSettings {
+  id                       String         @id @default("default")
+  feishuAppId              String         @default("")
+  feishuAppSecret          String         @default("")
+  feishuRedirectUri        String         @default("http://localhost:3000/api/auth/feishu/callback")
+  feishuBaseUrl            String         @default("")
+  sessionSecret            String         @default("replace-with-a-long-random-secret")
+  githubOwner              String         @default("example")
+  repoVisibility           RepoVisibility @default(private)
+  cloneEnabled             Boolean        @default(true)
+  openTraeEnabled          Boolean        @default(true)
+  localRoot                String         @default("~/solo_projects")
+  traeAppName              String         @default("Trae")
+  modelProvider            String         @default("openai_compatible")
+  modelBaseUrl             String         @default("https://api.openai.com/v1")
+  modelApiPath             String         @default("/chat/completions")
+  model                    String         @default("")
+  modelKey                 String         @default("")
+  dashboardMetricCardOrder String         @default("[]")
+  dashboardActionCardOrder String         @default("[]")
+  updatedAt                DateTime       @updatedAt
+}
+
+model GithubAuthStatus {
+  id          String   @id @default("default")
+  authorized  Boolean
+  message     String?
+  accountName String?
+  checkedAt   DateTime
+  updatedAt   DateTime @updatedAt
+}
+
+model SyncJob {
+  id          String     @id @default(cuid())
+  jobType     String
+  status      SyncStatus @default(draft)
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  triggeredBy String?
+  summary     String?
+  createdAt   DateTime   @default(now())
+
+  items       SyncJobItem[]
+}
+
+model SyncJobItem {
+  id         String     @id @default(cuid())
+  syncJobId  String
+  recordId   String
+  uid        String?
+  status     SyncStatus @default(draft)
+  error      String?
+  retryCount Int        @default(0)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  syncJob    SyncJob    @relation(fields: [syncJobId], references: [id], onDelete: Cascade)
+
+  @@index([syncJobId])
+  @@index([recordId])
+  @@index([status])
+}
