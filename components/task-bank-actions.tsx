@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { BUSINESS_DOMAIN_OPTIONS, MODEL_OPTIONS, TASK_GENERATION_BASE_PROMPT } from "@/lib/constants";
-import type { TaskItem } from "@/lib/types";
+import { BUSINESS_DOMAIN_OPTIONS, MODEL_OPTIONS, TASK_DIFFICULTY_OPTIONS, TASK_GENERATION_BASE_PROMPT } from "@/lib/constants";
+import type { TaskDifficulty, TaskItem } from "@/lib/types";
 
 type GenerateState =
   | { status: "idle" }
@@ -28,6 +28,7 @@ export function TaskBankActions({ model, onConfirmInsert, openToken, onOpenToken
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [promptMode, setPromptMode] = useState<"append" | "override">("append");
   const [count, setCount] = useState(5);
+  const [difficulty, setDifficulty] = useState<TaskDifficulty | "">("");
   const [selectedModel, setSelectedModel] = useState(model);
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
   const [basePrompt, setBasePrompt] = useState(TASK_GENERATION_BASE_PROMPT);
@@ -41,7 +42,7 @@ export function TaskBankActions({ model, onConfirmInsert, openToken, onOpenToken
     const response = await fetch("/api/task-bank/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ count, model: selectedModel, promptMode, basePrompt, userPrompt, businessDomains: selectedDomains }),
+      body: JSON.stringify({ count, model: selectedModel, promptMode, basePrompt, userPrompt, businessDomains: selectedDomains, difficulty: difficulty || undefined }),
     });
     const payload = (await response.json()) as { ok?: boolean; error?: string; data?: TaskItem[] };
 
@@ -107,7 +108,7 @@ export function TaskBankActions({ model, onConfirmInsert, openToken, onOpenToken
               <h3 className="text-base font-semibold text-slate-950">生成题目</h3>
             </div>
             <div className="max-h-[calc(90vh-8rem)] space-y-4 overflow-auto px-5 py-4">
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-4">
                 <div>
                   <div className="mb-1 text-xs text-slate-500">生成模型</div>
                   <select className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={selectedModel} onChange={(event) => setSelectedModel(event.currentTarget.value)}>
@@ -141,6 +142,18 @@ export function TaskBankActions({ model, onConfirmInsert, openToken, onOpenToken
                     value={count}
                     onChange={(event) => setCount(Math.min(20, Math.max(1, Number(event.currentTarget.value) || 1)))}
                   />
+                </div>
+
+                <div>
+                  <div className="mb-1 text-xs text-slate-500">题目难度</div>
+                  <select className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" value={difficulty} onChange={(event) => setDifficulty(event.currentTarget.value as TaskDifficulty | "")}>
+                    <option value="">不限难度</option>
+                    {TASK_DIFFICULTY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -206,7 +219,10 @@ export function TaskBankActions({ model, onConfirmInsert, openToken, onOpenToken
                   <ul className="mt-3 max-h-64 space-y-3 overflow-auto">
                     {previewItems.map((item) => (
                       <li key={item.taskId} className="rounded-lg border border-slate-100 p-3">
-                        <div className="text-sm font-medium text-slate-900">{item.title}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-medium text-slate-900">{item.title}</div>
+                          {item.difficulty ? <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">{TASK_DIFFICULTY_OPTIONS.find((option) => option.value === item.difficulty)?.label ?? item.difficulty}</span> : null}
+                        </div>
                         <div className="mt-1 text-xs text-slate-600">{item.promptContent}</div>
                       </li>
                     ))}

@@ -1,7 +1,7 @@
-import { DEFAULT_MODEL, TASK_GENERATION_BASE_PROMPT } from "@/lib/constants";
+import { DEFAULT_MODEL, TASK_DIFFICULTY_OPTIONS, TASK_GENERATION_BASE_PROMPT } from "@/lib/constants";
 import { checkTaskSimilarity } from "@/lib/services/dedupe";
 import { readUserSettings } from "@/lib/services/local-user-settings-store";
-import type { TaskItem } from "@/lib/types";
+import type { TaskDifficulty, TaskItem } from "@/lib/types";
 
 export type TaskGenerationInput = {
   count: number;
@@ -10,6 +10,7 @@ export type TaskGenerationInput = {
   basePrompt?: string;
   userPrompt?: string;
   businessDomains?: string[];
+  difficulty?: TaskDifficulty;
   existingTasks: TaskItem[];
 };
 
@@ -19,6 +20,7 @@ type GeneratedCandidate = {
   taskType?: string;
   businessDomain?: string;
   modifyScope?: string;
+  difficulty?: TaskDifficulty;
 };
 
 type OpenAIChatResponse = {
@@ -45,15 +47,20 @@ function buildPrompt(input: TaskGenerationInput) {
     ? `\n\n业务领域要求：题目需限定在以下业务领域之一：${input.businessDomains.join("、")}。输出 JSON 中每个任务的 businessDomain 必须使用上述领域之一。`
     : "";
 
+  const difficultyOption = TASK_DIFFICULTY_OPTIONS.find((option) => option.value === input.difficulty);
+  const difficultyHint = difficultyOption
+    ? `\n\n难度要求：${difficultyOption.prompt}输出 JSON 中每个任务的 difficulty 必须填写 "${difficultyOption.value}"。题目的实现规模、验收点和边界条件必须符合该难度。`
+    : "";
+
   const basePrompt = input.basePrompt?.trim() || TASK_GENERATION_BASE_PROMPT;
 
   if (!input.userPrompt?.trim()) {
-    return `${basePrompt}${domainHint}${dedupeHint}`;
+    return `${basePrompt}${domainHint}${difficultyHint}${dedupeHint}`;
   }
   if (input.promptMode === "override") {
-    return `${input.userPrompt.trim()}${domainHint}\n\n输出格式要求：仅输出 JSON 对象 {\"tasks\":[...]}。每个任务必须包含非空 title 和 promptContent。${dedupeHint}`;
+    return `${input.userPrompt.trim()}${domainHint}${difficultyHint}\n\n输出格式要求：仅输出 JSON 对象 {\"tasks\":[...]}。每个任务必须包含非空 title 和 promptContent。${dedupeHint}`;
   }
-  return `${basePrompt}${domainHint}\n\n附加要求：${input.userPrompt.trim()}${dedupeHint}`;
+  return `${basePrompt}${domainHint}${difficultyHint}\n\n附加要求：${input.userPrompt.trim()}${dedupeHint}`;
 }
 
 function normalizeApiUrl(baseUrl: string, apiPath: string) {
@@ -96,6 +103,7 @@ function parseCandidates(content: string): GeneratedCandidate[] {
         taskType: candidate.taskType?.trim(),
         businessDomain: candidate.businessDomain?.trim(),
         modifyScope: candidate.modifyScope?.trim(),
+        difficulty: TASK_DIFFICULTY_OPTIONS.some((option) => option.value === candidate.difficulty) ? candidate.difficulty : undefined,
       };
     })
     .filter((item) => item.title && item.promptContent);
@@ -187,6 +195,7 @@ function toTaskItem(candidate: GeneratedCandidate, input: TaskGenerationInput, m
     taskType: candidate.taskType || "功能开发",
     businessDomain: candidate.businessDomain || fallbackBusinessDomain,
     modifyScope: candidate.modifyScope || "多模块",
+    difficulty: candidate.difficulty || input.difficulty,
     sourceType: "generated",
     status: "draft",
     createdAt: new Date().toISOString(),

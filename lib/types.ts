@@ -1,6 +1,7 @@
 export type SyncStatus = "draft" | "syncing" | "synced" | "failed" | "conflicted";
 export type TaskStatus = "draft" | "ready" | "running" | "submitted" | "archived";
 export type SourceType = "manual" | "generated" | "synced";
+export type TaskDifficulty = "easy" | "medium" | "hard";
 
 export type TaskRecordColumnMapping = {
   feishuColumn: string;
@@ -92,6 +93,7 @@ export type TaskItem = {
   taskType: string;
   businessDomain: string;
   modifyScope: string;
+  difficulty?: TaskDifficulty;
   sourceType: SourceType;
   status: TaskStatus;
   submittedAt?: string;

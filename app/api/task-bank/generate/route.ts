@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { TASK_DIFFICULTY_OPTIONS } from "@/lib/constants";
 import { buildTaskBank } from "@/lib/services/feishu-base";
 import { readStoredTaskRecords } from "@/lib/services/local-task-record-store";
 import { generateTasks } from "@/lib/services/task-generation";
@@ -10,6 +11,7 @@ type GenerateRequest = {
   basePrompt?: string;
   userPrompt?: string;
   businessDomains?: unknown;
+  difficulty?: unknown;
 };
 
 export async function POST(request: NextRequest) {
@@ -20,6 +22,7 @@ export async function POST(request: NextRequest) {
     const businessDomains = Array.isArray(input.businessDomains)
       ? input.businessDomains.filter((domain): domain is string => typeof domain === "string" && domain.trim().length > 0).map((domain) => domain.trim())
       : undefined;
+    const difficulty = TASK_DIFFICULTY_OPTIONS.find((option) => option.value === input.difficulty)?.value;
 
     const taskRecords = await readStoredTaskRecords();
     const existingTasks = buildTaskBank(taskRecords);
@@ -30,6 +33,7 @@ export async function POST(request: NextRequest) {
       basePrompt: input.basePrompt,
       userPrompt: input.userPrompt,
       businessDomains,
+      difficulty,
       existingTasks,
     });
 
