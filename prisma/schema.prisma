@@ -97,6 +97,9 @@ model TaskBankItem {
   sourceType      SourceType
   status          TaskStatus
   submittedAt     DateTime?
+  testCasesJson   String     @default("")
+  testCasesGeneratedAt DateTime?
+  testCasesModel  String     @default("")
   createdAt       DateTime   @default(now())
   fingerprint     String?
 

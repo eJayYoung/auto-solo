@@ -6,6 +6,8 @@ function normalizeTaskItem(item: TaskItem): TaskItem {
   return {
     ...item,
     uidBinding: item.uidBinding || "",
+    testCasesJson: item.testCasesJson || "",
+    testCasesModel: item.testCasesModel || "",
     createdAt: item.createdAt || new Date().toISOString(),
   };
 }
@@ -39,6 +41,9 @@ function toTaskItem(item: {
   sourceType: SourceType;
   status: TaskStatus;
   submittedAt: Date | null;
+  testCasesJson: string;
+  testCasesGeneratedAt: Date | null;
+  testCasesModel: string;
   createdAt: Date;
 }): TaskItem {
   return {
@@ -54,6 +59,9 @@ function toTaskItem(item: {
     sourceType: item.sourceType,
     status: item.status,
     submittedAt: item.submittedAt?.toISOString(),
+    testCasesJson: item.testCasesJson,
+    testCasesGeneratedAt: item.testCasesGeneratedAt?.toISOString(),
+    testCasesModel: item.testCasesModel,
     createdAt: item.createdAt.toISOString(),
   };
 }
@@ -85,6 +93,9 @@ export async function writeStoredTaskBankItems(items: TaskItem[]): Promise<TaskI
           sourceType: item.sourceType,
           status: item.status,
           submittedAt: item.submittedAt ? new Date(item.submittedAt) : null,
+          testCasesJson: item.testCasesJson || "",
+          testCasesGeneratedAt: item.testCasesGeneratedAt ? new Date(item.testCasesGeneratedAt) : null,
+          testCasesModel: item.testCasesModel || "",
           createdAt: new Date(item.createdAt),
         },
         update: {
@@ -99,6 +110,9 @@ export async function writeStoredTaskBankItems(items: TaskItem[]): Promise<TaskI
           sourceType: item.sourceType,
           status: item.status,
           submittedAt: item.submittedAt ? new Date(item.submittedAt) : null,
+          testCasesJson: item.testCasesJson || "",
+          testCasesGeneratedAt: item.testCasesGeneratedAt ? new Date(item.testCasesGeneratedAt) : null,
+          testCasesModel: item.testCasesModel || "",
         },
       }),
     ),
@@ -109,6 +123,18 @@ export async function writeStoredTaskBankItems(items: TaskItem[]): Promise<TaskI
 
 export async function appendStoredTaskBankItems(items: TaskItem[]): Promise<TaskItem[]> {
   return writeStoredTaskBankItems(items);
+}
+
+export async function updateStoredTaskBankItemTestCases(taskId: string, testCasesJson: string, model: string): Promise<TaskItem[]> {
+  await prisma.taskBankItem.update({
+    where: { taskId },
+    data: {
+      testCasesJson,
+      testCasesGeneratedAt: new Date(),
+      testCasesModel: model,
+    },
+  });
+  return readStoredTaskBankItems();
 }
 
 export async function removeStoredTaskBankItem(taskId: string): Promise<TaskItem[]> {

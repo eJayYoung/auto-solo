@@ -62,6 +62,26 @@ export type TaskRecordSubmitInput = {
   unsatisfiedReason?: string;
 };
 
+export type TaskTestCaseType = "normal" | "edge" | "error" | "regression";
+
+export type TaskTestCase = {
+  name: string;
+  type: TaskTestCaseType;
+  preconditions: string[];
+  testData: string[];
+  input: string;
+  steps: string[];
+  expected: string;
+  checkpoints: string[];
+  severity: "must" | "should" | "nice";
+};
+
+export type TaskTestCaseSet = {
+  summary: string;
+  testCases: TaskTestCase[];
+  notes: string;
+};
+
 export type TaskItem = {
   taskId: string;
   uidBinding: string;
@@ -75,6 +95,9 @@ export type TaskItem = {
   sourceType: SourceType;
   status: TaskStatus;
   submittedAt?: string;
+  testCasesJson?: string;
+  testCasesGeneratedAt?: string;
+  testCasesModel?: string;
   createdAt: string;
 };
 
