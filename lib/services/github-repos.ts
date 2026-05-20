@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { prisma } from "@/lib/db";
 import { readCachedGithubAuthStatus } from "@/lib/services/github-auth";
 import { openTraeApp } from "@/lib/services/github-workspace";
 import { readUserSettings, readWorkspaceProjects } from "@/lib/services/local-user-settings-store";
@@ -18,6 +19,7 @@ export type GithubRepoItem = {
   fullName: string;
   httpsUrl: string;
   localPath?: string;
+  submitted: boolean;
 };
 
 export type GithubReposResult = {
@@ -41,9 +43,49 @@ const assertAuthorizedOrThrow = async () => {
   return authStatus.accountName || "Unknown";
 };
 
+function normalizeGithubRepoKey(value: string) {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return null;
+  }
+
+  const sshMatch = /^git@github\.com:([^/]+)\/([^/#?]+?)(?:\.git)?(?:[/?#].*)?$/i.exec(trimmedValue);
+  if (sshMatch) {
+    return `${sshMatch[1]}/${sshMatch[2]}`.toLowerCase();
+  }
+
+  try {
+    const url = new URL(trimmedValue);
+    if (url.hostname.toLowerCase() !== "github.com") {
+      return null;
+    }
+
+    const [owner, repo] = url.pathname.split("/").filter(Boolean);
+    if (!owner || !repo) {
+      return null;
+    }
+
+    return `${owner}/${repo.replace(/\.git$/i, "")}`.toLowerCase();
+  } catch {
+    const [owner, repo] = trimmedValue.replace(/\.git$/i, "").split("/");
+    return owner && repo ? `${owner}/${repo}`.toLowerCase() : null;
+  }
+}
+
+async function readSubmittedRepoKeys() {
+  const records = await prisma.taskRecord.findMany({
+    where: {
+      githubUrl: { not: "" },
+    },
+    select: { githubUrl: true },
+  });
+
+  return new Set(records.map((record) => normalizeGithubRepoKey(record.githubUrl)).filter((key): key is string => Boolean(key)));
+}
+
 export async function listGithubRepos(): Promise<GithubReposResult> {
   const accountName = await assertAuthorizedOrThrow();
-  const projects = await readWorkspaceProjects();
+  const [projects, submittedRepoKeys] = await Promise.all([readWorkspaceProjects(), readSubmittedRepoKeys()]);
   const localPathsByFullName = new Map(
     projects.map((project) => [`${project.githubOwner}/${project.repoName}`, project.localPath]),
   );
@@ -73,8 +115,9 @@ export async function listGithubRepos(): Promise<GithubReposResult> {
     repos: repoList.map((repo) => ({
       name: repo.name,
       fullName: repo.full_name,
-      httpsUrl: repo.clone_url || repo.html_url,
+      httpsUrl: repo.html_url || repo.clone_url.replace(/\.git$/i, ""),
       localPath: localPathsByFullName.get(repo.full_name),
+      submitted: submittedRepoKeys.has(repo.full_name.toLowerCase()),
     })),
   };
 }

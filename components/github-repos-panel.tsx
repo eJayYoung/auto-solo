@@ -9,6 +9,7 @@ type GithubRepoItem = {
   fullName: string;
   httpsUrl: string;
   localPath?: string;
+  submitted: boolean;
 };
 
 type GithubReposResponse = {
@@ -117,7 +118,13 @@ export function GithubReposPanel({ initialAuthStatus }: GithubReposPanelProps) {
       return;
     }
 
-    void loadRepos({ preserveCurrentOnError: true, showLoading: true });
+    const timeoutId = window.setTimeout(() => {
+      void loadRepos({ preserveCurrentOnError: true });
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [initialAuthStatus]);
   useEffect(() => {
     function handleAuthStatusChanged(event: Event) {
@@ -256,6 +263,7 @@ export function GithubReposPanel({ initialAuthStatus }: GithubReposPanelProps) {
             <tr>
               <th className="px-4 py-3 font-medium">仓库名称</th>
               <th className="px-4 py-3 font-medium">HTTPS 地址</th>
+              <th className="px-4 py-3 font-medium">提报状态</th>
               <th className="px-4 py-3 font-medium">操作</th>
             </tr>
           </thead>
@@ -271,6 +279,9 @@ export function GithubReposPanel({ initialAuthStatus }: GithubReposPanelProps) {
                       <div className="h-4 w-80 animate-pulse rounded bg-slate-100" />
                     </td>
                     <td className="px-4 py-4">
+                      <div className="h-6 w-16 animate-pulse rounded-full bg-slate-100" />
+                    </td>
+                    <td className="px-4 py-4">
                       <div className="h-8 w-48 animate-pulse rounded bg-slate-100" />
                     </td>
                   </tr>
@@ -278,7 +289,7 @@ export function GithubReposPanel({ initialAuthStatus }: GithubReposPanelProps) {
               </>
             ) : state.repos.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-slate-500" colSpan={3}>
+                <td className="px-4 py-6 text-slate-500" colSpan={4}>
                   当前账号下暂无仓库。
                 </td>
               </tr>
@@ -290,6 +301,17 @@ export function GithubReposPanel({ initialAuthStatus }: GithubReposPanelProps) {
                     <a className="underline" href={repo.httpsUrl} target="_blank" rel="noreferrer">
                       {repo.httpsUrl}
                     </a>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={
+                        repo.submitted
+                          ? "inline-flex rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700"
+                          : "inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-500"
+                      }
+                    >
+                      {repo.submitted ? "已提报" : "未提报"}
+                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
