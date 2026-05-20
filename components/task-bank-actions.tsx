@@ -82,6 +82,10 @@ export function TaskBankActions({ model, onConfirmInsert, openToken, onOpenToken
     setGenerateState({ status: "idle" });
   }
 
+  function handleDeletePreviewItem(taskId: string) {
+    setPreviewItems((current) => current.filter((item) => item.taskId !== taskId));
+  }
+
   return (
     <div className="space-y-4">
       {hideTrigger ? null : (
@@ -219,11 +223,18 @@ export function TaskBankActions({ model, onConfirmInsert, openToken, onOpenToken
                   <ul className="mt-3 max-h-64 space-y-3 overflow-auto">
                     {previewItems.map((item) => (
                       <li key={item.taskId} className="rounded-lg border border-slate-100 p-3">
-                        <div className="flex items-center gap-2">
-                          <div className="text-sm font-medium text-slate-900">{item.title}</div>
-                          {item.difficulty ? <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">{TASK_DIFFICULTY_OPTIONS.find((option) => option.value === item.difficulty)?.label ?? item.difficulty}</span> : null}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <div className="text-sm font-medium text-slate-900">{item.title}</div>
+                              {item.difficulty ? <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">{TASK_DIFFICULTY_OPTIONS.find((option) => option.value === item.difficulty)?.label ?? item.difficulty}</span> : null}
+                            </div>
+                            <div className="mt-1 text-xs text-slate-600">{item.promptContent}</div>
+                          </div>
+                          <button className="shrink-0 rounded-lg border border-red-100 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50" type="button" onClick={() => handleDeletePreviewItem(item.taskId)}>
+                            删除
+                          </button>
                         </div>
-                        <div className="mt-1 text-xs text-slate-600">{item.promptContent}</div>
                       </li>
                     ))}
                   </ul>
@@ -251,9 +262,26 @@ export function TaskBankActions({ model, onConfirmInsert, openToken, onOpenToken
                   )}
                 </button>
               ) : (
-                <button className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-medium text-white" type="button" onClick={handleConfirmInsert}>
-                  确认插入题库
-                </button>
+                <>
+                  <button
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+                    type="button"
+                    onClick={handleGenerate}
+                    disabled={generateState.status === "loading"}
+                  >
+                    {generateState.status === "loading" ? (
+                      <>
+                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
+                        重新生成中...
+                      </>
+                    ) : (
+                      "重新生成"
+                    )}
+                  </button>
+                  <button className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" type="button" onClick={handleConfirmInsert} disabled={generateState.status === "loading"}>
+                    确认插入题库
+                  </button>
+                </>
               )}
             </div>
           </div>

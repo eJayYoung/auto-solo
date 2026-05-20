@@ -1,9 +1,20 @@
 import { DEFAULT_MODEL } from "@/lib/constants";
+import { readStoredTaskBankItems, updateStoredTaskBankItemTestCases } from "@/lib/services/local-task-bank-store";
 import { readUserSettings } from "@/lib/services/local-user-settings-store";
 import type { TaskItem, TaskTestCase, TaskTestCaseSet, TaskTestCaseType } from "@/lib/types";
 
 type TaskTestCaseGenerationOptions = {
   model?: string;
+};
+
+type BatchTaskTestCaseGenerationOptions = TaskTestCaseGenerationOptions & {
+  overwrite?: boolean;
+};
+
+export type GenerateTaskTestCasesResult = {
+  taskId: string;
+  status: "generated" | "skipped" | "failed";
+  error?: string;
 };
 
 type OpenAIChatResponse = {
@@ -202,4 +213,39 @@ export async function generateTaskTestCases(task: TaskItem, options: TaskTestCas
   }
 
   throw lastError ?? new Error("模型接口调用失败，请检查设置");
+}
+
+export async function generateTaskTestCasesForTaskIds(taskIds: string[], options: BatchTaskTestCaseGenerationOptions = {}) {
+  let items = await readStoredTaskBankItems();
+  const itemById = new Map(items.map((item) => [item.taskId, item]));
+  const results: GenerateTaskTestCasesResult[] = [];
+
+  for (const taskId of taskIds) {
+    const item = itemById.get(taskId);
+    if (!item) {
+      results.push({ taskId, status: "failed", error: "题目不存在" });
+      continue;
+    }
+
+    if (item.testCasesJson && !options.overwrite) {
+      results.push({ taskId, status: "skipped" });
+      continue;
+    }
+
+    try {
+      const testCaseSet = await generateTaskTestCases(item, { model: options.model });
+      const model = options.model || item.model;
+      items = await updateStoredTaskBankItemTestCases(taskId, JSON.stringify(testCaseSet, null, 2), model);
+      const updatedItem = items.find((task) => task.taskId === taskId);
+      if (updatedItem) {
+        itemById.set(taskId, updatedItem);
+      }
+      results.push({ taskId, status: "generated" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Generate test cases failed";
+      results.push({ taskId, status: "failed", error: message });
+    }
+  }
+
+  return { items, results };
 }

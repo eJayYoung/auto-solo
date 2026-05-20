@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { appendStoredTaskBankItems, readStoredTaskBankItems, removeStoredTaskBankItem } from "@/lib/services/local-task-bank-store";
+import { generateTaskTestCasesForTaskIds } from "@/lib/services/task-testcase-generation";
 import type { TaskItem } from "@/lib/types";
 
 type InsertPayload = {
@@ -23,6 +24,16 @@ export async function POST(request: NextRequest) {
     }
 
     const items = await appendStoredTaskBankItems(payload.items);
+    const taskIds = [...new Set(payload.items.map((item) => item.taskId).filter((taskId) => taskId.trim().length > 0))];
+
+    if (taskIds.length > 0) {
+      queueMicrotask(() => {
+        void generateTaskTestCasesForTaskIds(taskIds, { overwrite: false }).catch((error) => {
+          console.error("Auto generate task test cases failed", error);
+        });
+      });
+    }
+
     return NextResponse.json({ ok: true, data: items });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Insert task bank items failed";
