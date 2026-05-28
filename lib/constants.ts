@@ -101,6 +101,13 @@ JSON 格式必须为：
 - modifyScope：优先填写“前端工作台”“交互式前端”“可视化看板”“流程预演器”等前端实现范围，避免填写“本地 CLI”“小脚本”“数据校验工具”
 - difficulty：填写 easy、medium 或 hard；如果外部指定难度，必须与指定难度一致`;
 
+export const SOLO_CODER_PROMPT_RULES = `Solo Coder 标注规则：
+- 每个多轮对话最多 5 轮，第一轮为 0-1代码生成；满意后下一轮生成 Feature迭代，不满意后下一轮生成 Bug修复。
+- 每轮必须能形成独立提交记录，字段包含 Trae Session ID、User Prompt、任务类型、业务领域、修改范围、任务是否完成、产物及过程是否满意、不满意原因、github地址、截图、日志轨迹。
+- 第一轮禁止单文件题目，禁止过于简单题目；必须有明确业务场景、交付物、交互/接口要求和验收方式。
+- 判断未完成只能依据 prompt 明确提出的需求；当前轮要结合首轮和前序有效迭代累计需求。
+- 不满意原因必须拆分为“产物不满意：...”和“过程不满意：...”，不能只写笼统结论。`;
+
 export const TASK_DIFFICULTY_OPTIONS = [
   { value: "easy", label: "简单", prompt: "简单：单一工具或单页/CLI，核心能力 2-3 个，数据结构直接，边界条件少，适合快速交付。" },
   { value: "medium", label: "中等", prompt: "中等：涉及 3-5 个核心能力，包含导入/校验/汇总/导出等组合流程，需要处理常见边界和异常。" },
@@ -136,7 +143,7 @@ export const BUSINESS_DOMAIN_OPTIONS = [
   "自动化与工具脚本",
 ] as const;
 
-export const DEFAULT_LOCAL_ROOT = "~/solo_projects";
+export const DEFAULT_LOCAL_ROOT = "./workspace";
 export const DEFAULT_TRAE_APP_NAME = "Trae CN";
 
 export const FEISHU_OAUTH_AUTHORIZE_URL = "https://open.feishu.cn/open-apis/authen/v1/index";

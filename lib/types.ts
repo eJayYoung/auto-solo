@@ -106,6 +106,8 @@ export type TaskItem = {
 export type WorkspaceProjectStatus = "success" | "partial_success";
 export type WorkspaceRunStatus = "draft" | "collected" | "analyzed" | "submitted" | "failed";
 export type EvaluationConfidence = "high" | "medium" | "low";
+export type SoloSessionStatus = "draft" | "running" | "completed" | "imported" | "archived";
+export type SoloRoundImportStatus = "draft" | "importing" | "imported" | "failed";
 
 export type WorkspaceProject = {
   workspaceId: string;
@@ -143,8 +145,14 @@ export type WorkspaceRun = {
   traeExportPath: string;
   logsText: string;
   artifactSummary: string;
+  gitStatusText: string;
+  gitDiffText: string;
+  diffFilePath: string;
+  suggestedTaskCompleted: string;
   aiSuggestedSatisfaction: string;
   aiSuggestedReason: string;
+  productUnsatisfiedReason: string;
+  processUnsatisfiedReason: string;
   aiEvidence: string[];
   aiConfidence?: EvaluationConfidence;
   userFinalSatisfaction: string;
@@ -167,13 +175,84 @@ export type WorkspaceRunSubmitInput = {
   traeExportPath?: string;
   logsText?: string;
   artifactSummary?: string;
+  gitStatusText?: string;
+  gitDiffText?: string;
+  diffFilePath?: string;
+  roundNumber?: number;
 };
 
 export type WorkspaceRunEvaluation = {
-  suggestedSatisfaction: "满意" | "不满意";
-  suggestedUnsatisfiedReason: string;
+  taskCompleted: "完成了任务" | "未完成任务";
+  productSatisfaction: "满意" | "不满意";
+  processSatisfaction: "满意" | "不满意";
+  overallSatisfaction: "满意" | "不满意";
+  productUnsatisfiedReason: string;
+  processUnsatisfiedReason: string;
+  combinedUnsatisfiedReason: string;
   evidence: string[];
   confidence: EvaluationConfidence;
+};
+
+export type SoloSession = {
+  sessionId: string;
+  workspaceId: string;
+  taskId: string;
+  repoName: string;
+  githubUrl: string;
+  localPath: string;
+  repoPath: string;
+  diffRootPath: string;
+  businessDomain: string;
+  status: SoloSessionStatus;
+  currentRound: number;
+  maxRounds: number;
+  createdAt: string;
+  updatedAt: string;
+  repoCloned?: boolean;
+  traeOpened?: boolean;
+  rounds?: SoloRound[];
+};
+
+export type SoloRound = {
+  roundId: string;
+  sessionId: string;
+  recordId: string;
+  roundNumber: number;
+  traeSessionId: string;
+  userPrompt: string;
+  taskType: string;
+  businessDomain: string;
+  modifyScope: string;
+  taskCompleted: string;
+  processSatisfaction: string;
+  productUnsatisfiedReason: string;
+  processUnsatisfiedReason: string;
+  combinedUnsatisfiedReason: string;
+  githubUrl: string;
+  branchOrFolder: string;
+  screenshotPath: string;
+  logsText: string;
+  gitStatusText: string;
+  gitDiffText: string;
+  diffFilePath: string;
+  artifactSummary: string;
+  nextPrompt: string;
+  scoreStatus: string;
+  scoreError: string;
+  scoreEvidence: string[];
+  scoreConfidence?: EvaluationConfidence;
+  importStatus: SoloRoundImportStatus;
+  importError: string;
+  submittedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SoloPromptResult = {
+  userPrompt: string;
+  taskType: string;
+  businessDomain: string;
+  modifyScope: string;
 };
 
 export type UserSettings = {
@@ -201,6 +280,7 @@ export type UserSettingsInput = UserSettings;
 
 export type CreateWorkspaceTargetRecord = {
   recordId: string;
+  uid?: string;
   githubUrl: string;
   branchOrFolder: string;
 };

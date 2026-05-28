@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
-  { href: "/", label: "工作台" },
+  { href: "/solo-workbench", label: "Workbench" },
   { href: "/tasks", label: "任务表" },
   { href: "/task-bank", label: "题库表" },
   { href: "/github-repos", label: "GitHub 仓库" },

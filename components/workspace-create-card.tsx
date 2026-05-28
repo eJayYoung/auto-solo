@@ -357,21 +357,48 @@ export function WorkspaceCreateCard({ settings, targetRecords = [], onBackfillAp
               <button className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100" onClick={closeModal}>
                 {requestState.status === "success" ? "完成" : "取消"}
               </button>
-              <button
-                className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={requestState.status === "checking_auth" || requestState.status === "creating_repo" || requestState.status === "success"}
-                onClick={requestState.status === "error" && requestState.step === "checking_auth" ? triggerGithubAuth : submit}
-              >
-                {requestState.status === "checking_auth"
-                  ? "检查授权中"
-                  : requestState.status === "creating_repo"
-                    ? "批量创建中"
-                    : requestState.status === "success"
-                      ? "已完成"
-                      : requestState.status === "error" && requestState.step === "checking_auth"
-                        ? "一键授权"
-                        : "确认创建"}
-              </button>
+              <div className="flex items-center gap-2">
+                {requestState.status === "success" ? (
+                  <button
+                    className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                    onClick={async () => {
+                      const project = requestState.result.projects[0];
+                      if (!project) {
+                        return;
+                      }
+                      const response = await fetch("/api/solo-sessions", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ workspaceId: project.workspaceId }),
+                      });
+                      const payload = (await response.json()) as { ok?: boolean; data?: { sessionId: string }; error?: string };
+                      if (response.ok && payload.ok && payload.data?.sessionId) {
+                        window.location.href = `/solo-workbench/${payload.data.sessionId}`;
+                      } else {
+                        setRequestState({ status: "error", step: "creating_repo", error: payload.error || "创建 Solo 会话失败" });
+                      }
+                    }}
+                    type="button"
+                  >
+                    进入 Solo 工作台
+                  </button>
+                ) : null}
+                <button
+                  className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={requestState.status === "checking_auth" || requestState.status === "creating_repo" || requestState.status === "success"}
+                  onClick={requestState.status === "error" && requestState.step === "checking_auth" ? triggerGithubAuth : submit}
+                >
+                  {requestState.status === "checking_auth"
+                    ? "检查授权中"
+                    : requestState.status === "creating_repo"
+                      ? "批量创建中"
+                      : requestState.status === "success"
+                        ? "已完成"
+                        : requestState.status === "error" && requestState.step === "checking_auth"
+                          ? "一键授权"
+                          : "确认创建"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

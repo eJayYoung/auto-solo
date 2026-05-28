@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { GITHUB_AUTH_STATUS_CHANGED_EVENT } from "@/components/workspace-create-card";
+export const GITHUB_AUTH_STATUS_CHANGED_EVENT = "github-auth:status-changed";
 import type { GithubAuthLoginSession, GithubAuthStatus } from "@/lib/types";
 
 const SESSION_POLL_INTERVAL_MS = 2000;

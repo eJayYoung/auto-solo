@@ -76,6 +76,7 @@ async function main() {
   const payload = await collectWorkspaceRuntime(directory, {
     uid,
     recordId: getArg("--record-id"),
+    roundNumber: Number.parseInt(getArg("--round") || "1", 10) || 1,
     screenshotPath,
     screenshotMimeType: screenshotPath ? "image/png" : "",
     traeExportPath: getArg("--trae-export") || "",

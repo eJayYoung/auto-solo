@@ -46,6 +46,21 @@ enum WorkspaceRunStatus {
   failed
 }
 
+enum SoloSessionStatus {
+  draft
+  running
+  completed
+  imported
+  archived
+}
+
+enum SoloRoundImportStatus {
+  draft
+  importing
+  imported
+  failed
+}
+
 enum EvaluationConfidence {
   high
   medium
@@ -129,6 +144,7 @@ model WorkspaceProject {
   createdAt       DateTime               @default(now())
 
   runs            WorkspaceRun[]
+  soloSessions    SoloSession[]
 
   @@index([taskId])
   @@index([recordId])
@@ -151,8 +167,14 @@ model WorkspaceRun {
   traeExportPath             String               @default("")
   logsText                   String               @default("")
   artifactSummary            String               @default("")
+  gitStatusText              String               @default("")
+  gitDiffText                String               @default("")
+  diffFilePath               String               @default("")
+  suggestedTaskCompleted     String               @default("")
   aiSuggestedSatisfaction    String               @default("")
   aiSuggestedReason          String               @default("")
+  productUnsatisfiedReason   String               @default("")
+  processUnsatisfiedReason   String               @default("")
   aiEvidence                 String               @default("[]")
   aiConfidence               EvaluationConfidence?
   userFinalSatisfaction      String               @default("")
@@ -167,6 +189,73 @@ model WorkspaceRun {
   @@index([recordId])
   @@index([uid])
   @@index([status])
+}
+
+model SoloSession {
+  id             String            @id @default(cuid())
+  sessionId      String            @unique
+  workspaceId    String            @unique
+  taskId         String            @default("")
+  repoName       String
+  githubUrl      String
+  localPath      String
+  repoPath       String
+  diffRootPath   String
+  businessDomain String            @default("")
+  status         SoloSessionStatus @default(draft)
+  currentRound   Int               @default(0)
+  maxRounds      Int               @default(5)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  workspaceProject WorkspaceProject @relation(fields: [workspaceId], references: [workspaceId], onDelete: Cascade)
+  rounds           SoloRound[]
+
+  @@index([workspaceId])
+  @@index([status])
+}
+
+model SoloRound {
+  id                         String                @id @default(cuid())
+  roundId                    String                @unique
+  sessionId                  String
+  recordId                   String                @default("")
+  roundNumber                Int
+  traeSessionId              String                @default("")
+  userPrompt                 String                @default("")
+  taskType                   String                @default("")
+  businessDomain             String                @default("")
+  modifyScope                String                @default("")
+  taskCompleted              String                @default("")
+  processSatisfaction        String                @default("")
+  productUnsatisfiedReason   String                @default("")
+  processUnsatisfiedReason   String                @default("")
+  combinedUnsatisfiedReason  String                @default("")
+  githubUrl                  String                @default("")
+  branchOrFolder             String                @default("")
+  screenshotPath             String                @default("")
+  logsText                   String                @default("")
+  gitStatusText              String                @default("")
+  gitDiffText                String                @default("")
+  diffFilePath               String                @default("")
+  artifactSummary            String                @default("")
+  nextPrompt                 String                @default("")
+  scoreStatus                String                @default("draft")
+  scoreError                 String                @default("")
+  scoreEvidence              String                @default("[]")
+  scoreConfidence            EvaluationConfidence?
+  importStatus               SoloRoundImportStatus @default(draft)
+  importError                String                @default("")
+  submittedAt                DateTime?
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
+
+  soloSession                SoloSession           @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
+
+  @@unique([sessionId, roundNumber])
+  @@index([sessionId])
+  @@index([recordId])
+  @@index([importStatus])
 }
 
 model UserSettings {

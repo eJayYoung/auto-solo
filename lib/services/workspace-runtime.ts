@@ -42,8 +42,14 @@ function toWorkspaceRun(run: {
   traeExportPath: string;
   logsText: string;
   artifactSummary: string;
+  gitStatusText: string;
+  gitDiffText: string;
+  diffFilePath: string;
+  suggestedTaskCompleted: string;
   aiSuggestedSatisfaction: string;
   aiSuggestedReason: string;
+  productUnsatisfiedReason: string;
+  processUnsatisfiedReason: string;
   aiEvidence: string;
   aiConfidence: WorkspaceRun["aiConfidence"] | null;
   userFinalSatisfaction: string;
@@ -67,8 +73,14 @@ function toWorkspaceRun(run: {
     traeExportPath: run.traeExportPath,
     logsText: run.logsText,
     artifactSummary: run.artifactSummary,
+    gitStatusText: run.gitStatusText,
+    gitDiffText: run.gitDiffText,
+    diffFilePath: run.diffFilePath,
+    suggestedTaskCompleted: run.suggestedTaskCompleted,
     aiSuggestedSatisfaction: run.aiSuggestedSatisfaction,
     aiSuggestedReason: run.aiSuggestedReason,
+    productUnsatisfiedReason: run.productUnsatisfiedReason,
+    processUnsatisfiedReason: run.processUnsatisfiedReason,
     aiEvidence: parseStringArray(run.aiEvidence),
     aiConfidence: run.aiConfidence ?? undefined,
     userFinalSatisfaction: run.userFinalSatisfaction,
@@ -99,6 +111,30 @@ async function pathExists(targetPath: string) {
 async function runGit(cwd: string, args: string[]) {
   const { stdout } = await execFileAsync("git", args, { cwd, maxBuffer: 10 * 1024 * 1024 });
   return stdout.trim();
+}
+
+function buildDiffRootPath(repoName: string) {
+  return path.join(process.cwd(), "workspace", repoName, "diff");
+}
+
+function buildDiffFilePath(repoName: string, roundNumber = 1) {
+  return path.join(buildDiffRootPath(repoName), `round-${roundNumber}.diff`);
+}
+
+async function runOptionalGit(cwd: string, args: string[]) {
+  try {
+    return await runGit(cwd, args);
+  } catch (error) {
+    return error instanceof Error ? `Git command failed: git ${args.join(" ")}\n${error.message}` : `Git command failed: git ${args.join(" ")}`;
+  }
+}
+
+async function writeRoundDiff(repoName: string, roundNumber: number | undefined, gitDiffText: string) {
+  const diffRootPath = buildDiffRootPath(repoName);
+  await mkdir(diffRootPath, { recursive: true });
+  const diffFilePath = buildDiffFilePath(repoName, roundNumber ?? 1);
+  await writeFile(diffFilePath, gitDiffText.trim() ? `${gitDiffText}\n` : "No git diff changes.\n");
+  return diffFilePath;
 }
 
 export async function readWorkspaceMetadata(directory = process.cwd()): Promise<WorkspaceMetadata> {
@@ -163,6 +199,11 @@ export async function collectWorkspaceRuntime(directory = process.cwd(), input: 
   const githubUrl = input.githubUrl || metadata.githubUrl || (await runGit(directory, ["remote", "get-url", "origin"]));
   const branchName = input.branchName || (await runGit(directory, ["branch", "--show-current"])) || "main";
   const repoName = input.repoName || metadata.expectedRepoName || path.basename(directory);
+  const gitStatusText = input.gitStatusText ?? (await runOptionalGit(directory, ["status", "--short"]));
+  const gitDiffStat = await runOptionalGit(directory, ["diff", "--stat"]);
+  const gitDiffBody = input.gitDiffText ?? (await runOptionalGit(directory, ["diff", "--"]));
+  const gitDiffText = gitDiffStat.trim() ? `${gitDiffStat}\n\n${gitDiffBody}` : gitDiffBody;
+  const diffFilePath = input.diffFilePath || (await writeRoundDiff(repoName, input.roundNumber, gitDiffText));
 
   return {
     workspaceId: input.workspaceId || metadata.workspaceId,
@@ -177,6 +218,10 @@ export async function collectWorkspaceRuntime(directory = process.cwd(), input: 
     traeExportPath: input.traeExportPath ?? "",
     logsText: input.logsText ?? "",
     artifactSummary: input.artifactSummary ?? "",
+    gitStatusText,
+    gitDiffText,
+    diffFilePath,
+    roundNumber: input.roundNumber,
   };
 }
 
@@ -219,6 +264,9 @@ export async function createWorkspaceRun(input: WorkspaceRunSubmitInput): Promis
       traeExportPath: input.traeExportPath ?? "",
       logsText: input.logsText ?? "",
       artifactSummary: input.artifactSummary ?? "",
+      gitStatusText: input.gitStatusText ?? "",
+      gitDiffText: input.gitDiffText ?? "",
+      diffFilePath: input.diffFilePath ?? "",
     },
   });
 

@@ -37,14 +37,24 @@ function parseEvaluation(content: string): WorkspaceRunEvaluation {
   const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
   const raw = fencedMatch?.[1] ?? trimmed;
   const payload = JSON.parse(raw) as Partial<WorkspaceRunEvaluation>;
-  const suggestedSatisfaction = payload.suggestedSatisfaction === "满意" ? "满意" : "不满意";
-  const suggestedUnsatisfiedReason = typeof payload.suggestedUnsatisfiedReason === "string" ? payload.suggestedUnsatisfiedReason.trim() : "";
+  const taskCompleted = payload.taskCompleted === "完成了任务" ? "完成了任务" : "未完成任务";
+  const productSatisfaction = taskCompleted === "未完成任务" ? "不满意" : payload.productSatisfaction === "满意" ? "满意" : "不满意";
+  const processSatisfaction = payload.processSatisfaction === "满意" ? "满意" : "不满意";
+  const overallSatisfaction = productSatisfaction === "满意" && processSatisfaction === "满意" ? "满意" : "不满意";
+  const productUnsatisfiedReason = typeof payload.productUnsatisfiedReason === "string" ? payload.productUnsatisfiedReason.trim() : "";
+  const processUnsatisfiedReason = typeof payload.processUnsatisfiedReason === "string" ? payload.processUnsatisfiedReason.trim() : "";
+  const combinedUnsatisfiedReason = overallSatisfaction === "满意" ? "" : `产物不满意：${productUnsatisfiedReason || "无"}\n过程不满意：${processUnsatisfiedReason || "无"}`;
   const evidence = Array.isArray(payload.evidence) ? payload.evidence.filter((item): item is string => typeof item === "string") : [];
   const confidence = payload.confidence === "high" || payload.confidence === "medium" || payload.confidence === "low" ? payload.confidence : "low";
 
   return {
-    suggestedSatisfaction,
-    suggestedUnsatisfiedReason: suggestedSatisfaction === "满意" ? "" : suggestedUnsatisfiedReason,
+    taskCompleted,
+    productSatisfaction,
+    processSatisfaction,
+    overallSatisfaction,
+    productUnsatisfiedReason: overallSatisfaction === "满意" ? "" : productUnsatisfiedReason,
+    processUnsatisfiedReason: overallSatisfaction === "满意" ? "" : processUnsatisfiedReason,
+    combinedUnsatisfiedReason,
     evidence,
     confidence,
   };
@@ -57,14 +67,16 @@ function buildPrompt(run: WorkspaceRun, taskRecord: {
   modifyScope: string;
   taskCompleted: string;
 }) {
-  return `请根据以下 Solo Coder 测试采集结果，判断“产物及过程是否满意”的建议值，并在不满意时生成可直接作为标注草稿的不满意原因。
+  return `请根据以下 Solo Coder 测试采集结果，判断任务是否完成、产物是否满意、过程是否满意，并在不满意时生成可直接作为标注草稿的原因。
 
 要求：
 - 只输出 JSON，不要输出 Markdown。
-- JSON 格式：{"suggestedSatisfaction":"满意|不满意","suggestedUnsatisfiedReason":"...","evidence":["..."],"confidence":"high|medium|low"}
-- 如果建议为“满意”，suggestedUnsatisfiedReason 必须为空字符串。
-- 如果建议为“不满意”，原因必须先评价本轮结果，不要只写历史问题；尽量包含范围/对象、现象证据、与需求偏差、影响中的至少两类信息。
-- 如果日志或证据不足以判断，请给低置信度建议，并在 evidence 中说明缺失信息。
+- JSON 格式：{"taskCompleted":"完成了任务|未完成任务","productSatisfaction":"满意|不满意","processSatisfaction":"满意|不满意","overallSatisfaction":"满意|不满意","productUnsatisfiedReason":"...","processUnsatisfiedReason":"...","combinedUnsatisfiedReason":"...","evidence":["..."],"confidence":"high|medium|low"}
+- 如果任务未完成，productSatisfaction 必须为“不满意”。
+- 如果 overallSatisfaction 为“不满意”，productUnsatisfiedReason 和 processUnsatisfiedReason 要分别评价本轮产物和过程，不要只写历史问题。
+- 原因尽量包含范围/对象、现象证据、与需求偏差、影响、复现条件、严重程度中的至少两类信息。
+- prompt 中没有提到的额外需求，不能作为判定未完成任务的依据。
+- 如果日志、diff 或证据不足以判断，请给低置信度建议，并在 evidence 中说明缺失信息。
 
 任务信息：
 User Prompt: ${taskRecord.userPrompt}
@@ -77,6 +89,11 @@ User Prompt: ${taskRecord.userPrompt}
 GitHub: ${run.githubUrl}
 分支: ${run.branchName}
 本地路径: ${run.localPath}
+Git 状态:
+${run.gitStatusText}
+Git Diff:
+${run.gitDiffText}
+Diff 文件: ${run.diffFilePath}
 截图路径: ${run.screenshotPath}
 Trae 导出物: ${run.traeExportPath}
 产物摘要: ${run.artifactSummary}
@@ -173,8 +190,11 @@ export async function analyzeWorkspaceRun(runId: string): Promise<WorkspaceRun> 
     where: { runId },
     data: {
       status: "analyzed",
-      aiSuggestedSatisfaction: evaluation.suggestedSatisfaction,
-      aiSuggestedReason: evaluation.suggestedUnsatisfiedReason,
+      suggestedTaskCompleted: evaluation.taskCompleted,
+      aiSuggestedSatisfaction: evaluation.overallSatisfaction,
+      aiSuggestedReason: evaluation.combinedUnsatisfiedReason,
+      productUnsatisfiedReason: evaluation.productUnsatisfiedReason,
+      processUnsatisfiedReason: evaluation.processUnsatisfiedReason,
       aiEvidence: JSON.stringify(evaluation.evidence),
       aiConfidence: evaluation.confidence,
     },
@@ -183,8 +203,11 @@ export async function analyzeWorkspaceRun(runId: string): Promise<WorkspaceRun> 
   return {
     ...run,
     status: updated.status,
+    suggestedTaskCompleted: updated.suggestedTaskCompleted,
     aiSuggestedSatisfaction: updated.aiSuggestedSatisfaction,
     aiSuggestedReason: updated.aiSuggestedReason,
+    productUnsatisfiedReason: updated.productUnsatisfiedReason,
+    processUnsatisfiedReason: updated.processUnsatisfiedReason,
     aiEvidence: evaluation.evidence,
     aiConfidence: updated.aiConfidence ?? undefined,
     updatedAt: updated.updatedAt.toISOString(),

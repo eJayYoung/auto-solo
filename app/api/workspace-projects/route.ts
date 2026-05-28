@@ -20,7 +20,7 @@ function isStringArray(value: unknown): value is string[] {
 }
 
 function isTargetRecord(value: unknown): value is CreateWorkspaceTargetRecord {
-  return typeof value === "object" && value !== null && isString((value as CreateWorkspaceTargetRecord).recordId) && isString((value as CreateWorkspaceTargetRecord).githubUrl) && isString((value as CreateWorkspaceTargetRecord).branchOrFolder);
+  return typeof value === "object" && value !== null && isString((value as CreateWorkspaceTargetRecord).recordId) && isString((value as CreateWorkspaceTargetRecord).githubUrl) && isString((value as CreateWorkspaceTargetRecord).branchOrFolder) && ((value as CreateWorkspaceTargetRecord).uid == null || isString((value as CreateWorkspaceTargetRecord).uid));
 }
 
 function isTargetRecordArray(value: unknown): value is CreateWorkspaceTargetRecord[] {

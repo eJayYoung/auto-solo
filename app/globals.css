@@ -27,3 +27,37 @@ select,
 textarea {
   font: inherit;
 }
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid #dbe3ef;
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.form-input {
+  min-height: 2.75rem;
+  padding: 0.625rem 0.875rem;
+}
+
+.form-textarea {
+  padding: 0.75rem 0.875rem;
+  line-height: 1.65;
+  resize: vertical;
+}
+
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: #94a3b8;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgb(15 23 42 / 0.08);
+  outline: none;
+}

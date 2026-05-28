@@ -1,6 +1,5 @@
 import { access, mkdir, writeFile } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -27,16 +26,6 @@ export class GithubAuthRequiredError extends Error {
   }
 }
 
-function expandHomeDir(value: string) {
-  if (value === "~") {
-    return os.homedir();
-  }
-  if (value.startsWith("~/")) {
-    return path.join(os.homedir(), value.slice(2));
-  }
-  return value;
-}
-
 function normalizeRepoName(value: string) {
   return value.trim();
 }
@@ -45,8 +34,12 @@ function normalizeOwner(value: string) {
   return value.trim();
 }
 
-function buildWorkspaceProjectId() {
+export function buildWorkspaceProjectId() {
   return `WS-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function getProjectWorkspaceRoot() {
+  return path.join(process.cwd(), "workspace");
 }
 
 function buildWorkspaceMetadataPath(localPath: string) {
@@ -76,11 +69,14 @@ async function writeWorkspaceMetadata(project: WorkspaceProject) {
 }
 
 function buildWorkspacePaths(input: CreateWorkspaceInput, repoName: string, githubOwner: string) {
-  const localRoot = path.resolve(expandHomeDir(input.localRoot.trim()));
-  const localPath = path.join(localRoot, repoName);
+  const workspaceRoot = getProjectWorkspaceRoot();
+  const repoWorkspacePath = path.join(workspaceRoot, repoName);
+  const localRoot = repoWorkspacePath;
+  const localPath = path.join(repoWorkspacePath, "repo");
+  const diffRootPath = path.join(repoWorkspacePath, "diff");
   const githubUrl = `https://github.com/${githubOwner}/${repoName}`;
 
-  return { localRoot, localPath, githubUrl };
+  return { localRoot, localPath, diffRootPath, githubUrl };
 }
 
 function buildBatchRepoNames(repoNames: string[]) {
@@ -252,9 +248,10 @@ async function createWorkspaceProjectWithOwner(input: CreateWorkspaceInput, gith
     throw new Error("repoName is required");
   }
 
-  const { localRoot, localPath, githubUrl } = buildWorkspacePaths(input, repoName, githubOwner);
+  const { localRoot, localPath, diffRootPath, githubUrl } = buildWorkspacePaths(input, repoName, githubOwner);
 
   await mkdir(localRoot, { recursive: true });
+  await mkdir(diffRootPath, { recursive: true });
   if (input.cloneEnabled) {
     await ensurePathMissing(localPath);
   }
@@ -283,7 +280,7 @@ async function createWorkspaceProjectWithOwner(input: CreateWorkspaceInput, gith
     workspaceId: buildWorkspaceProjectId(),
     taskId: input.taskId,
     recordId: targetRecord?.recordId ?? "",
-    uid: "",
+    uid: targetRecord?.uid ?? "",
     repoName,
     githubOwner,
     githubUrl,
@@ -353,11 +350,6 @@ export async function createWorkspaceProjectsBatch(input: CreateWorkspaceBatchIn
     if (backfillResult) {
       backfillResults.push(backfillResult);
     }
-  }
-
-  for (const project of projects) {
-    await writeWorkspaceMetadata(project);
-    await appendWorkspaceProject(project);
   }
 
   return {
